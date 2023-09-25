@@ -205,6 +205,67 @@ class QuadTree{
 
 		return closest;
 	}
+
+	isEmpty(){
+		return this.children == null && (this.entries == null || this.entries.length < 1);
+	}
+
+	remove(point){
+		if(point == null)
+			return false;
+
+		if(this.depth == 0){
+			QuadTree.Operations = 0;
+			QuadTree.PPComp = 0;
+		}
+		++QuadTree.Operations;
+
+		if(this.children == null){
+			for(var i = 0; i < this.entries.length; ++i){
+				++QuadTree.Operations;
+				if(this.entries[i] == point){
+					var p2 = this.entries[this.entries.length - 1];
+					this.entries[i] = p2;
+					this.entries.pop();
+
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		var halfsize = this.size / 2;
+		var x = point.posx - this.minx;
+		var y = point.posy - this.miny;
+		var index = 0;
+		index = index | (x >= halfsize ? 1 : 0) << 1;
+		index = index | (y >= halfsize ? 1 : 0);
+
+		if(this.children[index].remove(point)){
+			if(this.children[index].isEmpty()){
+				var dead = true;
+
+				for(var i = index; ; ){
+					++QuadTree.Operations;
+					dead = dead && this.children[i].isEmpty();
+
+					var i = (++i) & 3;
+					if(i == index || !dead)
+						break;
+				}
+
+				if(dead){
+					this.children = null;
+					this.entries = new Array();
+
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
 }
 
 function drawPoints(pointTable){
@@ -386,8 +447,10 @@ canvas.addEventListener("click", (e) => {
 	var y = e.clientY - canrect.top;
 
 	if(e.button == 0 && x >= 0 && x <= canrect.width && y >= 0 && y < canrect.height){
+		var realx = (x / canrect.width) * SIZE;
+		var realy = SIZE - (y / canrect.height) * SIZE;
 		if(document.getElementById("clickAdd").checked){
-			var p = new Point((x / canrect.width) * SIZE, SIZE - (y / canrect.height) * SIZE)
+			var p = new Point(realx, realy);
 			Points.push(p);
 			TheTree.insert(p);
 
@@ -395,7 +458,18 @@ canvas.addEventListener("click", (e) => {
 		}
 
 		if(document.getElementById("clickSearch").checked){
-			SearchPoint = new Point((x / canrect.width) * SIZE, SIZE - (y / canrect.height) * SIZE, "#00ff00");
+			SearchPoint = new Point(realx, realy, "#00ff00");
+		}
+
+		if(document.getElementById("clickRemove").checked){
+			var p = TheTree.findClosestInRadius(realx, realy, 200);
+			if(p.point != null){
+				TheTree.remove(p.point)
+				var index = Points.indexOf(p.point);
+				Points.splice(index, 1);
+			}
+
+			htmlupdateOperations();
 		}
 	}
 
