@@ -1,0 +1,173 @@
+<html>
+
+<head>
+	<title>Quadtree animated</title>
+	<link rel='stylesheet' type='text/css' href='style.css'>
+</head>
+
+<body>
+	<div id='main'>
+		<h1>Quadtree</h1>
+		<p>Demo by Jakub Górny (<a href='https://github.com/jakubgorny471/'>My GitHub</a>)</p>
+
+		<canvas width='512' height='512' id="canvas"></canvas>
+		<div id="controls">
+			<p>Number of operations: <span id="numoperations">N/A</span>, Point-point comparisons: <span id="numcomparisons">N/A</span></p>
+			<input type='button' onclick='htmlclearTree();htmlrefreshGraphics();' value='Clear tree'></input></br>
+
+			<label for='numRandPoints'>Amount</label>
+			<input type='number' id='numRandPoints' min='0' max='8192' value='100'/>
+			<input type='button' onclick='htmlgenerateRandomPoints();htmlrefreshGraphics();' value='Generate points'></input></br>
+
+			<label for='numMaxentries'>Max entries</label>
+			<input type='number' id='numMaxentries' min='1' max='100' value='2'/>
+			<input type='button' onclick='htmlregenerateTree();htmlrefreshGraphics();' value='Regenerate'></input></br>
+
+			<p>Click mode:</p> <label for='clickAdd'>Add Point</label><input type='radio' id='clickAdd' value='0' checked name='clickmode'/>
+			<label for='clickSearch'>Set search point</label><input type='radio' id='clickSearch' value='1' name='clickmode'/>
+			<p>Nearest Neighbor Search</p>
+			<input type='button' onclick='htmlfindClosest();htmlrefreshGraphics();' value='Find Nearest neighbor'></input>
+
+			<label for='nnsoptimized'>Optimized</label><input type='checkbox' id='nnsoptimized' checked/></br>
+			<input type='button' onclick='htmlnnsAnimate();' value='Visualize'></input><input type='button' onclick='htmlnnsStop();' value='Stop'></input></br>
+			<label for='playbackSpeed'>Playback speed (ms)</label>
+			<input type='number' id='playbackSpeed' min='1' max='2000' value='100'/>
+		</div>
+
+		<span class="floatclear"></span>
+
+		<script src="quadtree.js"></script>
+
+		<h1>Description</h1>
+		<p><b>QuadTree</b> is a 2D recursive, tree data structure that can be used to greatly accelerate some operations. One of such operation is
+		Nearest Neighbor Search (NNS in short). The naive approach to that problem, without any acceleration structure, is to go through all the points, calculating their
+		distances to the "pivot", returning the one with the smallest distance. A time complexity of such approach is <b>O(n)</b>.</p>
+		<p>We can greately speed up the process by using QuadTrees. The benefits may not be noticeable at first, when the sample size is small,
+		but as the number of points go up, the difference between the naive approach and Quadtree approach starts to be apparent. Just play around with the
+		interactive demo.</p>
+
+		<h2>Explanation</h2>
+		<ul>
+			<li><h3>Number of Operations</h3><p>an estimated number of iterations and recursive calls. The lower the number - the better.</p></li>
+			<li><h3>Point-Point comparisons</h3><p>Amount of point-point comparisons, again - the lower the better. For naive NNS it is <i>n</i>,
+				where <i>n</i> is number of points to search through.</p></li>
+			<li><h3>Optimized NNS</h3><p>Tick it, visualize the NNS, untick it, visualize again. You'll see the difference. I'll describe it in the 
+				<i>Algorithm</i> section.</p></li>
+			<li><h3>Visualization</h3>
+				<p>We search for the point that is nearest to <span style='color: #00ff00'>pivot</span>. The closest point is marked as
+					<span style='color: #ffff00'>yellow</span>.</p>
+				<p>Currently traversed node is <span style='color: #ffa000'>outlined</span>, visited leaf nodes are colored <span style='color: #00aaff'>blue</span>.</p>
+			</li>
+		</ul>
+		</br>
+		<h1>Algorithm</h1>
+		<p>While searching the internet for NNS algorithm for Octrees and/or Quadtrees I couldn't find any simple, intuitive explanation of a solution, thus
+			I decided to figure it out on my own. I can't say it's the most optimal way, but it is good enough for me.<p>
+		<p>When thinking about the algorithm a collapsing bubble came to my mind, and because of that I call this algorithm the <i>Collapsing bubble NNS</i>.</p>
+		</br>
+		<h2>Prerequisites</h2>
+		<p>The Quadtree class needs to have a method returning the distance to an arbitrary point defined by <i>X</i> and <i>Y</i> coordinates. It
+		returns 0 when the point is inside the bounds of the Quadtree, and a smallest distance to the bounds of the Quadtree if the point is outside.</p>
+
+		<p>Here is my implementation of that method <i>getDistance(x, y):</i></p>
+		<code><pre>
+getDistance(px, py){
+	var dx = Math.max(this.minx - px, 0, px - this.minx - this.size);
+	var dy = Math.max(this.miny - py, 0, py - this.miny - this.size);
+
+	return dx * dx + dy * dy;
+}
+		</pre></code>
+		<p>In my implementation a Quadtree is defined with it's <i>minx</i>, <i>miny</i> and <i>size</i> parameters.</p>
+
+		<h2>Collapsing bubble</h2>
+		<p>A recursive method called <i>findClosestInRadius(x, y, radius)</i> is defined. If the Quadtree (on which said method is invoked) is a leaf
+			it returns a pair of <i>point, distance</i>, where <i>point</i> is the point closest to <i>x, y</i> or <i>null</i> if there are no points in
+			that leaf. The <i>distance</i> is a distance from <i>x, y</i> to that point. All distances in my implementation are squared (no need for calculating the
+			square roots).
+			If the Quadtree is not a leaf a pair of <i>closestPoint, closestDistance</i> is defined, where <i>closestDistance</i> is set to <i>radius</i> and <i>closestPoint</i> is set
+			to <i>null</i></p>
+		<p>For every child tree do: if a distance from the <i>x, y</i> to the child is less than <i>closestDistance</i>:
+			recursively invoke child's method <i>findClosestInRadius</i> with radius parameter equal to <i>closestDistance</i>.
+			If a point in returned <i>point, distance</i> pair is not <i>null</i> and <i>distance</i> is smaller than or equal to <i>closestDistance</i>:
+			set the <i>closestPoint</i> to <i>point</i> and <i>closestDistance</i> to <i>distance</i>.
+		</p>
+
+		<p>
+			A pair of <i>point, distance</i> with a point that is closest to <i>x, y</i> will be returned, or <i>point = null</i> if there were
+			no points inside the defined radius.
+		</p>
+		<h2>Pseudocode</h2>
+		<code><pre>
+method findClosestInRadius(x, y, radius)
+	if this.children == null then
+		return this.closestPoint(x, y)
+
+	let closestDist = radius
+	let closestPoint = null
+
+	for each child in this.children do:
+		if child.getDistance(x, y) <= closestDist then
+			let newClosest = child.findClosestInRadius(x, y, closestDist)
+			if newClosest.point != null and newClosest.dist <= closestDist then
+				closestDist = newClosest.dist
+				closestPoint = newClosest.point
+
+	return [dist: closestDist, point: closestPoint]
+		</pre></code>
+
+		<h2>Optimization</h2>
+		<p>From the pseudocode we can clearly see, that the radius of search reduces each time we hit a point. Instead of going through each child in 0-3 order,
+		we should start from the quadrant that is closest to the search point.</p>
+		<p>The children of a node are stored in an array, and their indices are linked with their positions. 0th index is bottom left tree,
+		1st index is top left tree, 2nd index is bottom right tree and 3rd index is top right. We can deduce the correct quadrant's index by first
+		calculating <i>dx</i> and <i>dy</i>. <i>dx</i> being a difference of search point X coordinate and minx of a tree, <i>dy</i> - respectively for the Y axis.</p>
+		<p>Then the index is calculated using conditions and bitwise operations, like so:</p>
+		<code><pre>
+var halfsize = this.size / 2;
+var x = px - this.minx;
+var y = py - this.miny;
+var index = 0;
+index = index | (x >= halfsize ? 1 : 0) << 1;
+index = index | (y >= halfsize ? 1 : 0);
+		</pre></code>
+		<p>Once the index is calculated, we can modify the <i>findClosestInRadius</i> method to start the loop from that index</p>
+		<code><pre>
+findClosestInRadius(px, py, radius = Number.MAX_VALUE){
+	if(this.children == null)
+		return this.#findClosestPoint(px, py);
+
+	var closest = {
+		dist: radius,
+		point: null
+	}
+
+	var halfsize = this.size / 2;
+	var x = px - this.minx;
+	var y = py - this.miny;
+	var index = 0;
+	index = index | (x >= halfsize ? 1 : 0) << 1;
+	index = index | (y >= halfsize ? 1 : 0);
+
+	for(var i = index; ;){
+		var child = this.children[i];
+		if(child.getDistance(px, py) <= closest.dist){
+			var newclosest = child.findClosestInRadius(px, py, closest.dist);
+			if(newclosest.point != null && newclosest.dist <= closest.dist)
+				closest = newclosest;
+		}
+
+		i = (++i) & 3;
+		if(i == index)
+			break;
+	}
+
+	return closest;
+}
+		</pre></code>
+
+		<p>This algorithm, alongside with the optimization is trivialy implementable for higher dimensions, for example for an Octree.</p>
+	</div>
+</body>
+
+</html>
