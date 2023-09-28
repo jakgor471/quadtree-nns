@@ -313,7 +313,7 @@ function htmlrefreshGraphics(){
 	g.reset();
 	g.setTransform(1, 0, 0, -1, 0, SIZE);
 
-	g.strokeStyle = "#505050";
+	g.strokeStyle = "#a0a0a0";
 	g.beginPath();
 	drawQuadTree(TheTree);
 	g.stroke();
